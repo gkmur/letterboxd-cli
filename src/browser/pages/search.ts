@@ -4,7 +4,7 @@
 
 import { Page } from 'playwright';
 import { navigateTo } from '../client.js';
-import { sleep } from '../../utils.js';
+import { debug } from '../../utils/logger.js';
 import { FilmSlug, toFilmSlug } from '../../types/index.js';
 
 export interface SearchResult {
@@ -21,7 +21,9 @@ export interface SearchResult {
 export async function searchFilms(page: Page, query: string): Promise<SearchResult[]> {
   const searchUrl = `https://letterboxd.com/search/films/${encodeURIComponent(query)}/`;
   await navigateTo(page, searchUrl);
-  await sleep(1000);
+  
+  debug('Waiting for search results to load...');
+  await page.waitForSelector('ul.results, .no-results', { state: 'visible', timeout: 10000 });
   
   const results: SearchResult[] = [];
   

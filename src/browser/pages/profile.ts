@@ -5,7 +5,7 @@
 import { Page } from 'playwright';
 import { navigateTo } from '../client.js';
 import { ensureAuthenticated } from '../auth.js';
-import { sleep } from '../../utils.js';
+import { debug } from '../../utils/logger.js';
 
 export interface DiaryEntry {
   title: string;
@@ -43,7 +43,9 @@ export async function getDiary(page: Page, username: string, month?: string): Pr
   }
   
   await navigateTo(page, url);
-  await sleep(1000);
+  
+  debug('Waiting for diary entries to load...');
+  await page.waitForSelector('tr.diary-entry-row, .diary-entry, .no-entries', { state: 'visible', timeout: 10000 });
   
   const entries: DiaryEntry[] = [];
   
@@ -109,7 +111,9 @@ export async function getDiary(page: Page, username: string, month?: string): Pr
 export async function getWatchlist(page: Page, username: string): Promise<WatchlistItem[]> {
   await ensureAuthenticated(page);
   await navigateTo(page, `https://letterboxd.com/${username}/watchlist/`);
-  await sleep(1000);
+  
+  debug('Waiting for watchlist to load...');
+  await page.waitForSelector('li.poster-container, .film-poster, .empty-watchlist', { state: 'visible', timeout: 10000 });
   
   const items: WatchlistItem[] = [];
   
@@ -148,7 +152,9 @@ export async function getWatchlist(page: Page, username: string): Promise<Watchl
  */
 export async function getStats(page: Page, username: string): Promise<Stats> {
   await navigateTo(page, `https://letterboxd.com/${username}/`);
-  await sleep(1000);
+  
+  debug('Waiting for profile page to load...');
+  await page.waitForSelector('.profile-stats, .profile-statistic, .body-content', { state: 'visible', timeout: 10000 });
   
   let filmsThisYear = 0;
   let totalFilms = 0;

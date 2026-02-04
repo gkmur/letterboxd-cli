@@ -5,7 +5,7 @@
 import { Page } from 'playwright';
 import { getPage, navigateTo, closeBrowser } from './client.js';
 import { getCredentials } from '../config.js';
-import { sleep } from '../utils.js';
+import { debug } from '../utils/logger.js';
 
 /**
  * Check if the current session is authenticated
@@ -27,7 +27,8 @@ export async function login(page: Page): Promise<boolean> {
   const { username, password } = getCredentials();
   
   await navigateTo(page, 'https://letterboxd.com/sign-in/');
-  await sleep(1000);
+  debug('Waiting for sign-in form to load...');
+  await page.waitForSelector('input[name="username"]', { state: 'visible', timeout: 10000 });
   
   // Fill username
   await page.fill('input[name="username"]', username);
@@ -45,8 +46,10 @@ export async function login(page: Page): Promise<boolean> {
   // Click sign in button
   await page.click('input[type="submit"][value="Sign in"], button[type="submit"]');
   
-  // Wait for navigation
-  await sleep(2000);
+  // Wait for navigation to complete after login
+  debug('Waiting for login to complete...');
+  await page.waitForURL((url) => !url.toString().includes('/sign-in/'), { timeout: 15000 });
+  await page.waitForLoadState('domcontentloaded');
   
   // Verify login succeeded
   return await isAuthenticated(page);
@@ -58,7 +61,8 @@ export async function login(page: Page): Promise<boolean> {
 export async function ensureAuthenticated(page: Page): Promise<void> {
   // Navigate to home to check auth status
   await navigateTo(page, 'https://letterboxd.com/');
-  await sleep(500);
+  debug('Waiting for page to load to check auth status...');
+  await page.waitForLoadState('domcontentloaded');
   
   if (await isAuthenticated(page)) {
     return;
@@ -78,7 +82,8 @@ export async function checkAuthStatus(): Promise<{ authenticated: boolean; usern
   
   try {
     await navigateTo(page, 'https://letterboxd.com/');
-    await sleep(500);
+    debug('Waiting for page to load...');
+    await page.waitForLoadState('domcontentloaded');
     
     const authenticated = await isAuthenticated(page);
     

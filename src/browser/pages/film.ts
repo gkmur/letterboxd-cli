@@ -5,7 +5,8 @@
 import { Page } from 'playwright';
 import { navigateTo } from '../client.js';
 import { ensureAuthenticated } from '../auth.js';
-import { sleep, formatDate } from '../../utils.js';
+import { formatDate } from '../../utils.js';
+import { debug } from '../../utils/logger.js';
 
 export interface LogOptions {
   rating?: number;      // 0.5-5.0
@@ -21,7 +22,8 @@ export interface LogOptions {
  */
 export async function goToFilm(page: Page, slug: string): Promise<void> {
   await navigateTo(page, `https://letterboxd.com/film/${slug}/`);
-  await sleep(500);
+  debug('Waiting for film page to load...');
+  await page.waitForSelector('.film-poster, .film-header, section#tabbed-content', { state: 'visible', timeout: 10000 });
 }
 
 /**
@@ -30,7 +32,6 @@ export async function goToFilm(page: Page, slug: string): Promise<void> {
 export async function logFilm(page: Page, slug: string, options: LogOptions = {}): Promise<void> {
   await ensureAuthenticated(page);
   await goToFilm(page, slug);
-  await sleep(500);
   
   // Click the "Log or review" button to open the dialog
   const logButton = await page.$('a[data-track-action="AddThisFilm"], .add-this-film, [data-js-trigger="log"]');
@@ -46,9 +47,10 @@ export async function logFilm(page: Page, slug: string, options: LogOptions = {}
     await logButton.click();
   }
   
-  await sleep(1000);
-  
   // Wait for dialog to appear
+  debug('Waiting for log dialog to appear...');
+  await page.waitForSelector('.modal-dialog, [data-js-component="ReviewForm"], form.review-form', { state: 'visible', timeout: 10000 });
+  
   const dialog = await page.$('.modal-dialog, [data-js-component="ReviewForm"], form.review-form');
   if (!dialog) {
     throw new Error('Log dialog did not appear');
@@ -121,7 +123,12 @@ export async function logFilm(page: Page, slug: string, options: LogOptions = {}
   const saveButton = await page.$('input[type="submit"][value="Save"], button[type="submit"], .save-review');
   if (saveButton) {
     await saveButton.click();
-    await sleep(1500);
+    debug('Waiting for save to complete...');
+    // Wait for modal to close or success indicator
+    await page.waitForSelector('.modal-dialog', { state: 'hidden', timeout: 15000 }).catch(() => {
+      // Modal might not close cleanly, wait for network idle instead
+      return page.waitForLoadState('networkidle', { timeout: 10000 });
+    });
   } else {
     throw new Error('Could not find save button');
   }
@@ -162,7 +169,6 @@ async function setRatingInDialog(page: Page, rating: number): Promise<void> {
 export async function rateFilm(page: Page, slug: string, rating: number): Promise<void> {
   await ensureAuthenticated(page);
   await goToFilm(page, slug);
-  await sleep(500);
   
   // Find the rating widget in the sidebar
   const halfStars = Math.round(rating * 2);
@@ -172,7 +178,9 @@ export async function rateFilm(page: Page, slug: string, rating: number): Promis
     const ratingLink = await page.$('.rating-link, [data-track-action="RateFilm"]');
     if (ratingLink) {
       await ratingLink.click();
-      await sleep(300);
+      debug('Waiting for rating widget...');
+      // Wait for rating widget to become interactive
+      await page.waitForSelector('.rating .star, .rating-slider, [data-rating]', { state: 'visible', timeout: 5000 }).catch(() => {});
     }
     
     // Click the appropriate star
@@ -190,7 +198,9 @@ export async function rateFilm(page: Page, slug: string, rating: number): Promis
       }, rating);
     }
     
-    await sleep(500);
+    debug('Waiting for rating to save...');
+    // Short delay for rating to register (this is debounce-like behavior)
+    await page.waitForTimeout(300);
   } catch (e) {
     throw new Error(`Failed to rate film: ${e}`);
   }
@@ -202,7 +212,6 @@ export async function rateFilm(page: Page, slug: string, rating: number): Promis
 export async function toggleWatchlist(page: Page, slug: string, add: boolean): Promise<void> {
   await ensureAuthenticated(page);
   await goToFilm(page, slug);
-  await sleep(500);
   
   // Find the watchlist button (eye icon)
   const watchlistButton = await page.$('.film-watch-link-target, [data-track-action="AddToWatchlist"], .add-to-watchlist');
@@ -217,7 +226,18 @@ export async function toggleWatchlist(page: Page, slug: string, add: boolean): P
   // Only click if we need to change state
   if ((add && !isOnWatchlist) || (!add && isOnWatchlist)) {
     await watchlistButton.click();
-    await sleep(500);
+    debug('Waiting for watchlist toggle to complete...');
+    // Wait for class to change indicating state update
+    await page.waitForFunction(
+      ([sel, shouldHave]) => {
+        const el = document.querySelector(sel);
+        if (!el) return false;
+        const hasClass = el.className.includes('watchlisted') || el.className.includes('-watched');
+        return shouldHave ? hasClass : !hasClass;
+      },
+      ['.film-watch-link-target, [data-track-action="AddToWatchlist"], .add-to-watchlist', add] as const,
+      { timeout: 5000 }
+    ).catch(() => {});
   }
 }
 
@@ -227,7 +247,6 @@ export async function toggleWatchlist(page: Page, slug: string, add: boolean): P
 export async function likeFilm(page: Page, slug: string): Promise<void> {
   await ensureAuthenticated(page);
   await goToFilm(page, slug);
-  await sleep(500);
   
   const likeButton = await page.$('.film-like-link-target, [data-track-action="LikeFilm"], .like-button');
   if (!likeButton) {
@@ -239,6 +258,8 @@ export async function likeFilm(page: Page, slug: string): Promise<void> {
   
   if (!isLiked) {
     await likeButton.click();
-    await sleep(500);
+    debug('Waiting for like to register...');
+    // Wait for liked class to appear
+    await page.waitForSelector('.film-like-link-target.liked, [data-track-action="LikeFilm"].liked, .like-button.liked', { state: 'attached', timeout: 5000 }).catch(() => {});
   }
 }
