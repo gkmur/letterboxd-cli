@@ -15,7 +15,7 @@ interface DiaryOptions {
 }
 
 export async function diaryCommand(options: DiaryOptions): Promise<void> {
-  if (!hasCredentials()) {
+  if (!(await hasCredentials())) {
     console.log(chalk.red('Not authenticated. Run: letterboxd auth'));
     process.exit(1);
   }
