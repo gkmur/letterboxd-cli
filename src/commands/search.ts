@@ -5,7 +5,7 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import { getPage, closeBrowser } from '../browser/client.js';
-import { searchFilms, SearchResult } from '../browser/pages/search.js';
+import { searchFilms } from '../browser/pages/search.js';
 
 interface SearchOptions {
   json?: boolean;

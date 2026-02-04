@@ -1,5 +1,10 @@
 # letterboxd-cli
 
+[![npm version](https://img.shields.io/npm/v/@gkmur/letterboxd-cli.svg)](https://www.npmjs.com/package/@gkmur/letterboxd-cli)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
+
 CLI tool for [Letterboxd](https://letterboxd.com) — log films, manage your watchlist, view diary and stats.
 
 Since Letterboxd's official API isn't available for personal use, this CLI uses browser automation (Playwright) to interact with the web UI.
@@ -176,6 +181,13 @@ Since Letterboxd's API is not available for personal use, this CLI uses [Playwri
 4. Login happens automatically when needed
 
 First run may be slower while Playwright downloads browser binaries.
+
+## Technical Highlights
+
+- **Secure credential storage** — Passwords stored in system keychain via [keytar](https://github.com/atom/node-keytar), never in plaintext config files
+- **Resilient browser automation** — Playwright locators with `.or()` fallback chains handle HTML changes gracefully
+- **Type-safe identifiers** — Branded TypeScript types (`FilmSlug`, `Rating`) prevent common bugs at compile time
+- **Persistent sessions** — Cookies saved to disk for fast repeated use without re-authentication
 
 ## Ratings
 

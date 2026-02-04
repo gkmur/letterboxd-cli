@@ -15,7 +15,7 @@ interface RateOptions {
 }
 
 export async function rateCommand(film: string, rating: string, options: RateOptions): Promise<void> {
-  if (!hasCredentials()) {
+  if (!(await hasCredentials())) {
     console.log(chalk.red('Not authenticated. Run: letterboxd auth'));
     process.exit(1);
   }

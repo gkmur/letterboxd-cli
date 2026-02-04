@@ -13,7 +13,7 @@ interface StatsOptions {
 }
 
 export async function statsCommand(options: StatsOptions): Promise<void> {
-  if (!hasCredentials()) {
+  if (!(await hasCredentials())) {
     console.log(chalk.red('Not authenticated. Run: letterboxd auth'));
     process.exit(1);
   }

@@ -22,7 +22,8 @@ export async function logoutCommand(): Promise<void> {
   
   // Clear cookies
   const { rmSync } = await import('fs');
-  const cookiesDir = `${process.env.HOME}/.letterboxd-cli/cookies`;
+  const { homedir } = await import('os');
+  const cookiesDir = `${homedir()}/.letterboxd-cli/cookies`;
   try {
     rmSync(cookiesDir, { recursive: true, force: true });
   } catch {

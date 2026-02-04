@@ -3,7 +3,7 @@
  */
 
 import { Page } from 'playwright';
-import { getPage, navigateTo, closeBrowser } from './client.js';
+import { getPage, navigateTo } from './client.js';
 import { getCredentials } from '../config.js';
 import { debug } from '../utils/logger.js';
 
