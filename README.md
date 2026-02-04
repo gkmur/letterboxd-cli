@@ -1,9 +1,9 @@
 # letterboxd-cli
 
-[![npm version](https://img.shields.io/npm/v/@gkmur/letterboxd-cli.svg)](https://www.npmjs.com/package/@gkmur/letterboxd-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
+[![CI](https://github.com/gkmur/letterboxd-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/gkmur/letterboxd-cli/actions/workflows/ci.yml)
 
 CLI tool for [Letterboxd](https://letterboxd.com) — log films, manage your watchlist, view diary and stats.
 
