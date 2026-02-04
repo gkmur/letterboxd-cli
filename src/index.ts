@@ -5,6 +5,7 @@
 
 import { Command } from 'commander';
 import { authCommand } from './commands/auth.js';
+import { logoutCommand } from './commands/logout.js';
 import { searchCommand } from './commands/search.js';
 import { logCommand } from './commands/log.js';
 import { rateCommand } from './commands/rate.js';
@@ -35,6 +36,12 @@ program
   .description('Check authentication status or set up credentials')
   .option('--json', 'Output as JSON')
   .action(authCommand);
+
+// Logout command
+program
+  .command('logout')
+  .description('Clear stored credentials and session')
+  .action(logoutCommand);
 
 // Search command
 program

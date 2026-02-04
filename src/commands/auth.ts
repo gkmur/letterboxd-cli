@@ -5,7 +5,7 @@
 import { createInterface } from 'readline';
 import chalk from 'chalk';
 import ora from 'ora';
-import { hasCredentials, loadConfig, saveConfig } from '../config.js';
+import { hasCredentials, loadConfig, saveConfig, setPassword, migratePassword } from '../config.js';
 import { checkAuthStatus, login } from '../browser/auth.js';
 import { getPage, closeBrowser } from '../browser/client.js';
 
@@ -57,8 +57,11 @@ async function prompt(question: string, hidden = false): Promise<string> {
 }
 
 export async function authCommand(options: AuthOptions): Promise<void> {
+  // Check for and migrate any legacy plaintext passwords
+  await migratePassword();
+  
   // Check if credentials exist
-  if (!hasCredentials()) {
+  if (!(await hasCredentials())) {
     console.log(chalk.yellow('No credentials configured.\n'));
     
     // Prompt for credentials
@@ -70,13 +73,15 @@ export async function authCommand(options: AuthOptions): Promise<void> {
       process.exit(1);
     }
     
-    // Save credentials
+    // Save username to config (not password)
     const config = loadConfig();
     config.username = username;
-    config.password = password;
     saveConfig(config);
     
-    console.log(chalk.green('\n✓ Credentials saved to ~/.letterboxd-cli/config.json'));
+    // Store password in keychain
+    await setPassword(username, password);
+    
+    console.log(chalk.green('\n✓ Credentials saved securely (username in config, password in keychain)'));
   }
   
   // Test authentication
@@ -88,6 +93,15 @@ export async function authCommand(options: AuthOptions): Promise<void> {
     if (status.authenticated) {
       spinner.succeed(chalk.green(`Authenticated${status.username ? ` as ${status.username}` : ''}`));
       
+      // Update stored username if we scraped the real one
+      if (status.username) {
+        const config = loadConfig();
+        if (config.username !== status.username) {
+          // The original username might be an email, update to actual username
+          saveConfig({ ...config, username: status.username });
+        }
+      }
+      
       if (options.json) {
         console.log(JSON.stringify({ authenticated: true, username: status.username }));
       }
@@ -95,13 +109,20 @@ export async function authCommand(options: AuthOptions): Promise<void> {
       spinner.text = 'Session expired, logging in...';
       
       const page = await getPage();
-      const success = await login(page);
+      const result = await login(page);
       await page.close();
       
-      if (success) {
-        spinner.succeed(chalk.green('Logged in successfully'));
+      if (result.success) {
+        spinner.succeed(chalk.green(`Logged in successfully${result.username ? ` as ${result.username}` : ''}`));
+        
+        // Update stored username if we scraped the real one
+        if (result.username) {
+          const config = loadConfig();
+          saveConfig({ ...config, username: result.username });
+        }
+        
         if (options.json) {
-          console.log(JSON.stringify({ authenticated: true }));
+          console.log(JSON.stringify({ authenticated: true, username: result.username }));
         }
       } else {
         spinner.fail(chalk.red('Login failed. Check your credentials.'));

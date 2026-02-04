@@ -1,17 +1,20 @@
 /**
  * Configuration management for letterboxd-cli
  * Config stored at ~/.letterboxd-cli/config.json
+ * Password stored securely in system keychain via keytar
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
+import keytar from 'keytar';
 
 export interface Config {
   username?: string;
-  password?: string;
+  password?: string; // Legacy - will be migrated to keychain
 }
 
+const SERVICE_NAME = 'com.letterboxd-cli';
 const CONFIG_DIR = join(homedir(), '.letterboxd-cli');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 const COOKIES_DIR = join(CONFIG_DIR, 'cookies');
@@ -59,25 +62,95 @@ export function loadConfig(): Config {
  */
 export function saveConfig(config: Config): void {
   ensureConfigDir();
-  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+  // Don't store password in config file - use keychain
+  const { password: _password, ...safeConfig } = config;
+  writeFileSync(CONFIG_FILE, JSON.stringify(safeConfig, null, 2));
   chmodSync(CONFIG_FILE, 0o600);
+}
+
+/**
+ * Get password from system keychain
+ */
+export async function getPassword(username: string): Promise<string | null> {
+  return keytar.getPassword(SERVICE_NAME, username);
+}
+
+/**
+ * Store password in system keychain
+ */
+export async function setPassword(username: string, password: string): Promise<void> {
+  await keytar.setPassword(SERVICE_NAME, username, password);
+}
+
+/**
+ * Delete password from system keychain
+ */
+export async function deletePassword(username: string): Promise<boolean> {
+  return keytar.deletePassword(SERVICE_NAME, username);
+}
+
+/**
+ * Migrate plaintext password from config to keychain
+ */
+export async function migratePassword(): Promise<boolean> {
+  const config = loadConfig();
+  if (config.username && config.password) {
+    // Store in keychain
+    await setPassword(config.username, config.password);
+    // Remove from config file
+    saveConfig({ username: config.username });
+    return true;
+  }
+  return false;
 }
 
 /**
  * Check if we have credentials configured
  */
-export function hasCredentials(): boolean {
+export async function hasCredentials(): Promise<boolean> {
+  // Check env vars first
+  if (process.env.LETTERBOXD_USERNAME && process.env.LETTERBOXD_PASSWORD) {
+    return true;
+  }
+  
   const config = loadConfig();
-  return !!(config.username && config.password);
+  if (!config.username) {
+    return false;
+  }
+  
+  // Check keychain
+  const password = await getPassword(config.username);
+  return password !== null;
 }
 
 /**
  * Get credentials (throws if not configured)
+ * Priority: env vars > keychain
  */
-export function getCredentials(): { username: string; password: string } {
+export async function getCredentials(): Promise<{ username: string; password: string }> {
+  // Check env vars first
+  if (process.env.LETTERBOXD_USERNAME && process.env.LETTERBOXD_PASSWORD) {
+    return {
+      username: process.env.LETTERBOXD_USERNAME,
+      password: process.env.LETTERBOXD_PASSWORD,
+    };
+  }
+  
   const config = loadConfig();
-  if (!config.username || !config.password) {
+  if (!config.username) {
     throw new Error('No credentials configured. Run: letterboxd auth');
   }
-  return { username: config.username, password: config.password };
+  
+  // Try to migrate legacy plaintext password
+  if (config.password) {
+    await migratePassword();
+  }
+  
+  // Get password from keychain
+  const password = await getPassword(config.username);
+  if (!password) {
+    throw new Error('No password found. Run: letterboxd auth');
+  }
+  
+  return { username: config.username, password };
 }

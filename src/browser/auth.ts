@@ -21,10 +21,65 @@ export async function isAuthenticated(page: Page): Promise<boolean> {
 }
 
 /**
- * Perform login with stored credentials
+ * Scrape the actual username from the page after login
  */
-export async function login(page: Page): Promise<boolean> {
-  const { username, password } = getCredentials();
+async function scrapeUsername(page: Page): Promise<string | undefined> {
+  try {
+    // Try multiple selectors for the profile link
+    const selectors = [
+      'a.nav-link[href^="/"][href$="/"]',
+      'nav a[href^="/"][href$="/"][class*="profile"]',
+      '.nav-account a[href^="/"]',
+      'a[href^="/"][data-person]',
+    ];
+    
+    for (const selector of selectors) {
+      const profileLink = await page.$(selector);
+      if (profileLink) {
+        const href = await profileLink.getAttribute('href');
+        if (href) {
+          // Extract username from href like "/username/"
+          const match = href.match(/^\/([a-zA-Z0-9_]+)\/$/);
+          if (match && match[1]) {
+            debug(`Scraped username: ${match[1]}`);
+            return match[1];
+          }
+        }
+      }
+    }
+    
+    // Fallback: look for profile link in the navigation
+    const allNavLinks = await page.$$('nav a[href^="/"]');
+    for (const link of allNavLinks) {
+      const href = await link.getAttribute('href');
+      if (href) {
+        // Skip common non-profile links
+        const skipPaths = ['/films/', '/lists/', '/members/', '/journal/', '/sign-out/', '/settings/', '/search/', '/about/', '/pro/', '/patron/'];
+        if (skipPaths.some(path => href.includes(path))) {
+          continue;
+        }
+        const match = href.match(/^\/([a-zA-Z0-9_]+)\/$/);
+        if (match && match[1]) {
+          debug(`Scraped username from nav: ${match[1]}`);
+          return match[1];
+        }
+      }
+    }
+    
+    debug('Could not scrape username from page');
+    return undefined;
+  } catch (error) {
+    debug(`Error scraping username: ${error}`);
+    return undefined;
+  }
+}
+
+/**
+ * Perform login with stored credentials
+ * Returns success status and scraped username
+ */
+export async function login(page: Page): Promise<{ success: boolean; username?: string }> {
+  const { username, password } = await getCredentials();
   
   await navigateTo(page, 'https://letterboxd.com/sign-in/');
   debug('Waiting for sign-in form to load...');
@@ -52,7 +107,15 @@ export async function login(page: Page): Promise<boolean> {
   await page.waitForLoadState('domcontentloaded');
   
   // Verify login succeeded
-  return await isAuthenticated(page);
+  const success = await isAuthenticated(page);
+  
+  if (success) {
+    // Scrape the actual username from the profile link
+    const scrapedUsername = await scrapeUsername(page);
+    return { success: true, username: scrapedUsername };
+  }
+  
+  return { success: false };
 }
 
 /**
@@ -68,8 +131,8 @@ export async function ensureAuthenticated(page: Page): Promise<void> {
     return;
   }
   
-  const success = await login(page);
-  if (!success) {
+  const result = await login(page);
+  if (!result.success) {
     throw new Error('Login failed. Check your credentials with: letterboxd auth');
   }
 }
@@ -88,14 +151,8 @@ export async function checkAuthStatus(): Promise<{ authenticated: boolean; usern
     const authenticated = await isAuthenticated(page);
     
     if (authenticated) {
-      // Try to get username from profile link
-      const profileLink = await page.$('a.nav-link[href^="/"][href$="/"]');
-      if (profileLink) {
-        const href = await profileLink.getAttribute('href');
-        const username = href?.replace(/\//g, '');
-        return { authenticated: true, username };
-      }
-      return { authenticated: true };
+      const username = await scrapeUsername(page);
+      return { authenticated: true, username };
     }
     
     return { authenticated: false };
