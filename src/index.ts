@@ -11,13 +11,23 @@ import { rateCommand } from './commands/rate.js';
 import { watchlistAddCommand, watchlistRemoveCommand, watchlistListCommand } from './commands/watchlist.js';
 import { diaryCommand } from './commands/diary.js';
 import { statsCommand } from './commands/stats.js';
+import { setDebug } from './utils/logger.js';
+import { setDebugMode } from './browser/client.js';
 
 const program = new Command();
 
 program
   .name('letterboxd')
   .description('CLI tool for Letterboxd - log films, manage watchlist, view diary and stats')
-  .version('0.1.0');
+  .version('0.1.0')
+  .option('--debug', 'Enable debug mode (headed browser, verbose logging)')
+  .hook('preAction', () => {
+    const opts = program.opts();
+    if (opts.debug) {
+      setDebug(true);
+      setDebugMode(true);
+    }
+  });
 
 // Auth command
 program

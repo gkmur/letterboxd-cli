@@ -5,11 +5,12 @@
 import { Page } from 'playwright';
 import { navigateTo } from '../client.js';
 import { sleep } from '../../utils.js';
+import { FilmSlug, toFilmSlug } from '../../types/index.js';
 
 export interface SearchResult {
   title: string;
   year?: string;
-  slug: string;
+  slug: FilmSlug;
   url: string;
   director?: string;
 }
@@ -37,7 +38,7 @@ export async function searchFilms(page: Page, query: string): Promise<SearchResu
       if (!href || !href.startsWith('/film/')) continue;
       
       // Extract slug from URL
-      const slug = href.replace('/film/', '').replace(/\/$/, '');
+      const slug = toFilmSlug(href.replace('/film/', '').replace(/\/$/, ''));
       
       // Get title
       const titleEl = await item.$('.film-title-wrapper a, .headline-3 a');

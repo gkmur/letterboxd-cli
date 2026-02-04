@@ -2,6 +2,8 @@
  * Utility functions for letterboxd-cli
  */
 
+import { Rating, toRating } from './types/index.js';
+
 /**
  * Convert a film title to a Letterboxd URL slug
  * "The Dark Knight" → "the-dark-knight"
@@ -17,14 +19,15 @@ export function slugify(title: string): string {
 }
 
 /**
- * Parse a rating string to a number (0.5-5.0 in 0.5 increments)
+ * Parse a rating string to a Rating (0.5-5.0 in 0.5 increments)
  */
-export function parseRating(input: string): number | null {
+export function parseRating(input: string): Rating | null {
   // Handle star characters
   const starCount = (input.match(/★/g) || []).length;
   const halfStar = input.includes('½');
   if (starCount > 0) {
-    return Math.min(5, starCount + (halfStar ? 0.5 : 0));
+    const value = Math.min(5, starCount + (halfStar ? 0.5 : 0));
+    return toRating(value);
   }
 
   // Handle numeric input
@@ -33,7 +36,8 @@ export function parseRating(input: string): number | null {
   
   // Clamp and round to nearest 0.5
   const clamped = Math.min(5, Math.max(0.5, num));
-  return Math.round(clamped * 2) / 2;
+  const rounded = Math.round(clamped * 2) / 2;
+  return toRating(rounded);
 }
 
 /**

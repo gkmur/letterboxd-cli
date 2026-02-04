@@ -5,8 +5,18 @@
 
 import { chromium, BrowserContext, Page } from 'playwright';
 import { getCookiesDir } from '../config.js';
+import { debug } from '../utils/logger.js';
 
 let context: BrowserContext | null = null;
+let debugMode = false;
+
+/**
+ * Set debug mode (headed browser, verbose logging)
+ */
+export function setDebugMode(enabled: boolean): void {
+  debugMode = enabled;
+  debug('Debug mode enabled - browser will be visible');
+}
 
 /**
  * Get or create a browser context with persistent cookies
@@ -15,9 +25,11 @@ export async function getBrowserContext(): Promise<BrowserContext> {
   if (context) return context;
   
   const cookiesDir = getCookiesDir();
+  debug('Using cookies dir:', cookiesDir);
+  debug('Headless mode:', !debugMode);
   
   context = await chromium.launchPersistentContext(cookiesDir, {
-    headless: true,
+    headless: !debugMode,
     viewport: { width: 1280, height: 720 },
     userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   });
