@@ -5,3 +5,4 @@ dist/
 
 # Local config (credentials)
 ~/.letterboxd-cli/
+CLAUDE.md
