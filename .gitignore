@@ -6,3 +6,5 @@ dist/
 # Local config (credentials)
 ~/.letterboxd-cli/
 CLAUDE.md
+IMPLEMENTATION_PLAN.md
+plans/
