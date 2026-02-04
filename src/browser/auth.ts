@@ -13,8 +13,10 @@ import { debug } from '../utils/logger.js';
 export async function isAuthenticated(page: Page): Promise<boolean> {
   try {
     // Look for sign-in link (means NOT authenticated)
-    const signInLink = await page.$('a[href="/sign-in/"]');
-    return signInLink === null;
+    // Use getByRole for link with text matching sign in
+    const signInLink = page.getByRole('link', { name: /sign in/i });
+    const count = await signInLink.count();
+    return count === 0;
   } catch {
     return false;
   }
@@ -83,23 +85,34 @@ export async function login(page: Page): Promise<{ success: boolean; username?: 
   
   await navigateTo(page, 'https://letterboxd.com/sign-in/');
   debug('Waiting for sign-in form to load...');
-  await page.waitForSelector('input[name="username"]', { state: 'visible', timeout: 10000 });
+  
+  // Use getByLabel for form fields (most robust), with CSS fallback
+  const usernameField = page.getByLabel(/username|email/i).or(page.locator('input[name="username"]'));
+  const passwordField = page.getByLabel(/password/i).or(page.locator('input[name="password"]'));
+  
+  await usernameField.waitFor({ state: 'visible', timeout: 10000 });
   
   // Fill username
-  await page.fill('input[name="username"]', username);
+  await usernameField.fill(username);
+  debug('Filled username field');
   
   // Fill password
-  await page.fill('input[name="password"]', password);
+  await passwordField.fill(password);
+  debug('Filled password field');
   
-  // Check "Remember me" if present
+  // Check "Remember me" if present - use getByLabel or getByRole
   try {
-    await page.check('input[name="remember"]');
+    const rememberMe = page.getByLabel(/remember me/i).or(page.getByRole('checkbox', { name: /remember/i })).or(page.locator('input[name="remember"]'));
+    await rememberMe.check({ timeout: 2000 });
+    debug('Checked remember me');
   } catch {
-    // Checkbox might not exist
+    debug('Remember me checkbox not found or not checkable');
   }
   
-  // Click sign in button
-  await page.click('input[type="submit"][value="Sign in"], button[type="submit"]');
+  // Click sign in button - prefer getByRole
+  const signInButton = page.getByRole('button', { name: /sign in/i }).or(page.locator('input[type="submit"][value="Sign in"], button[type="submit"]'));
+  await signInButton.click();
+  debug('Clicked sign in button');
   
   // Wait for navigation to complete after login
   debug('Waiting for login to complete...');
